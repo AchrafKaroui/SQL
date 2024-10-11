@@ -1,0 +1,29 @@
+-----------------------Running Queries-------------------
+SELECT r.session_id,r.status,r.command,CONVERT(NUMERIC(6,2),r.percent_complete)
+AS [Percent Complete],CONVERT(VARCHAR(20),DATEADD(ms,r.estimated_completion_time,GetDate()),20) AS [ETA Completion Time],
+CONVERT(NUMERIC(10,2),r.total_elapsed_time/1000.0/60.0) AS [Elapsed Min],
+CONVERT(NUMERIC(10,2),r.estimated_completion_time/1000.0/60.0) AS [ETA Min],
+CONVERT(NUMERIC(10,2),r.estimated_completion_time/1000.0/60.0/60.0) AS [ETA Hours],
+CONVERT(VARCHAR(1500),(SELECT SUBSTRING(text,r.statement_start_offset/2,
+CASE WHEN r.statement_end_offset = -1 THEN 1500 ELSE (r.statement_end_offset-r.statement_start_offset)/2 + 1 END)
+FROM sys.dm_exec_sql_text(sql_handle))) AS [SQL]
+FROM sys.dm_exec_requests r
+WHERE command IN ('SELECT','INSERT','DELETE','UPDATE','KILLED/ROLLBACK','SELECT INTO','CREATE INDEX','BACKUP DATABASE','DBCCFILESCOMPACT','Alter index','RESTORE DATABASE')
+Order by 6 desc
+ 
+Go
+-------------------Blocked Queries---------------
+SELECT
+    blocking_session_id AS BlockingSessionID,
+    session_id AS BlockedSessionID,
+    wait_type,
+    wait_time / 1000 AS WaitTimeSec,
+    wait_resource AS Resource,
+    TEXT AS BlockedQuery
+FROM 
+    sys.dm_exec_requests AS r
+    CROSS APPLY sys.dm_exec_sql_text(r.sql_handle)
+WHERE 
+    r.blocking_session_id <> 0
+ORDER BY 
+    WaitTimeSec DESC
